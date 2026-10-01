@@ -1,5 +1,4 @@
-const config = require("../config");
-const { updateUserConfig } = require("../lib/userConfigService");
+const { loadUserConfig, updateUserConfig } = require("../lib/userConfigService");
 
 module.exports = {
     name: "set",
@@ -82,14 +81,18 @@ module.exports = {
                     return reply(`❌ Invalid feature name! Sahi command likhein.`);
             }
 
-            if (typeof updateUserConfig === 'function') {
-                const boolValue = (action === "on");
-                await updateUserConfig(sanitizedNumber, { [configKey]: boolValue });
-                if (typeof react === 'function') await react("✅");
-                return reply(`✅ Success! *${featureName}* ko successfully *${action.toUpperCase()}* kar diya gaya hai.`);
-            } else {
-                return reply(`❌ Error: Update service not found.`);
-            }
+            // Pehle current user config load karein taaki purani settings overwrite na hon
+            const currentConfig = await loadUserConfig(sanitizedNumber);
+            
+            // Nayi value set karein
+            const boolValue = (action === "on");
+            currentConfig[configKey] = boolValue;
+
+            // Updated config ko database mein save karein
+            await updateUserConfig(sanitizedNumber, currentConfig);
+
+            if (typeof react === 'function') await react("✅");
+            return reply(`✅ Success! *${featureName}* ko successfully *${action.toUpperCase()}* kar diya gaya hai.`);
 
         } catch (error) {
             console.error("Setting toggle error:", error);
