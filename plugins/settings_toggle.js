@@ -1,10 +1,8 @@
-const { updateUserConfig } = require("../lib/userConfigService");
-
 module.exports = {
-    name: "autoreact",
-    aliases: ["antilink", "antidel", "antistatus", "mentionstatus", "welcome", "statusseen", "statuslike", "set"],
+    name: "set",
+    aliases: ["antilink", "antistatus", "antimention", "antidel", "antidelete", "antiedit", "autoreact", "welcome", "statusseen", "statuslike"],
     category: "owner",
-    description: "Toggle bot settings quickly",
+    description: "Enable or disable bot features quickly",
 
     async execute(context) {
         const { reply, react, isOwner, command, q, sanitizedNumber } = context;
@@ -15,38 +13,28 @@ module.exports = {
             }
 
             let featureKey = "";
-            let featureName = "";
             let action = "";
 
-            // Agar command .set use ki hai aur aage feature diya hai (jaise: .set autoreact on)
             if (command === "set") {
                 const args = q ? q.toLowerCase().split(" ") : [];
                 featureKey = args[0];
                 action = args[1];
             } else {
-                // Agar direct command use ki hai (jaise: .autoreact on)
                 featureKey = command;
                 action = q ? q.toLowerCase().trim() : "";
             }
 
-            if (action !== "on" && action !== "off") {
-                return reply(`❌ Ghalat tareeqa! Use this format:\n• .${featureKey} on\n• .${featureKey} off`);
+            if (!featureKey || (action !== "on" && action !== "off")) {
+                return reply(`❌ Ghalat tareeqa! Sahi format use karein:\n\n• .set antilink on/off\n• .set antistatus on/off\n• .set mentionstatus on/off\n• .set antidel on/off\n• .set antiedit on/off\n• .set autoreact on/off\n• .set welcome on/off\n• .set statusseen on/off\n• .set statuslike on/off`);
             }
 
             let configKey = "";
+            let featureName = "";
+
             switch (featureKey) {
-                case "autoreact":
-                    configKey = "AUTO_REACT";
-                    featureName = "Auto-React";
-                    break;
                 case "antilink":
                     configKey = "ANTI_LINK";
                     featureName = "Anti-Link";
-                    break;
-                case "antidel":
-                case "antidelete":
-                    configKey = "ANTIDELETE";
-                    featureName = "Anti-Delete";
                     break;
                 case "antistatus":
                     configKey = "ANTISTATUS";
@@ -56,6 +44,19 @@ module.exports = {
                 case "antimention":
                     configKey = "ANTI_MENTION";
                     featureName = "Anti-Mention";
+                    break;
+                case "antidel":
+                case "antidelete":
+                    configKey = "ANTIDELETE";
+                    featureName = "Anti-Delete";
+                    break;
+                case "antiedit":
+                    configKey = "ANTIEDIT";
+                    featureName = "Anti-Edit";
+                    break;
+                case "autoreact":
+                    configKey = "AUTO_REACT";
+                    featureName = "Auto-React";
                     break;
                 case "welcome":
                     configKey = "WELCOME";
@@ -72,17 +73,23 @@ module.exports = {
                     featureName = "Auto Status Like";
                     break;
                 default:
-                    return reply(`❌ Invalid command or setting!`);
+                    return reply(`❌ Invalid feature name! Sahi command likhein.`);
             }
 
-            const boolValue = (action === "on");
-            await updateUserConfig(sanitizedNumber, { [configKey]: boolValue });
+            // User config update service ko safe tarike se require karna taaki path ka error na aaye
+            const { updateUserConfig } = require('../userConfigService') || require('./userConfigService') || {};
             
-            await react("✅");
-            return reply(`✅ Success! *${featureName}* ko *${action.toUpperCase()}* kar diya gaya hai.`);
+            if (typeof updateUserConfig === 'function') {
+                const boolValue = (action === "on");
+                await updateUserConfig(sanitizedNumber, { [configKey]: boolValue });
+                await react("✅");
+                return reply(`✅ Success! *${featureName}* ko successfully *${action.toUpperCase()}* kar diya gaya hai.`);
+            } else {
+                return reply(`❌ Error: Update service not found in this directory.`);
+            }
 
         } catch (error) {
-            console.error("Toggle error:", error);
+            console.error("Setting toggle error:", error);
             return reply(`❌ Error: ${error.message}`);
         }
     }
