@@ -1,80 +1,78 @@
-const cleanId = (id) => id ? id.split('@')[0].split(':')[0] : '';
+const config = require("../config");
 
 module.exports = {
-    name: "antidelete54",
-    aliases: ["antidel24"],
-    category: "group",
-    description: "Detects deleted messages and sends them back to the chat",
+    name: "antidelete",
+    aliases: ["antidel", "toggleantidelete"],
+    category: "moderation",
+    description: "Toggle anti-delete feature to catch deleted messages",
 
     async execute(context) {
-        const { conn, mek, m, store } = context;
-        const msg = mek || m;
+        const { reply, react, args, isOwner, getUserConfig, updateUserConfig } = context;
 
-        // 1. Check karein ki kya ye ek 'protocolMessage' (delete command) hai
-        if (msg.message?.protocolMessage && msg.message.protocolMessage.type === 0) {
-            
-            const deletedKey = msg.message.protocolMessage.key;
-            const from = deletedKey.remoteJid;
-
-            // Sirf groups ke liye (agar aap inbox me bhi chahte hain to ye line hata dein)
-            if (!from.endsWith("@g.us")) return;
-
-            // 2. Store se wo purana message nikalen jo delete kiya gaya hai
-            // Note: Iske liye aapke bot me 'store' configure hona zaroori hai
-            if (!store) {
-                console.log("Anti-Delete ke liye 'store' ka hona lazmi hai.");
-                return;
+        try {
+            if (!isOwner) {
+                return reply("❌ Only the owner can use this command!");
             }
 
-            const chatMessages = store.messages[from];
-            const originalMsg = chatMessages ? chatMessages.find(x => x.key.id === deletedKey.id) : null;
+            await react("🛡️");
 
-            if (!originalMsg) {
-                // Agar message store me nahi mila (bohot purana tha ya bot restart hua tha)
-                return;
-            }
-
-            // Sender aur deletion karne wale ki ID
-            const senderId = originalMsg.key.participant || originalMsg.key.remoteJid;
-            const deleterId = msg.key.participant || msg.key.remoteJid;
-
-            // Agar bot ne khud apna message delete kiya hai, to ignore karein
-            const botId = cleanId(conn.user?.id || '');
-            if (cleanId(senderId) === botId) return;
-
-            // 3. Deleted message ka content extract karein
-            const content = originalMsg.message;
-            if (!content) return;
-
-            // Caption text tayyar karein
-            let notificationText = `🗑️ *Deleted Message Detected!*\n\n` +
-                                   `👤 *Bhejne Wala:* @${senderId.split('@')[0]}\n` +
-                                   `🚫 *Delete Karne Wala:* @${deleterId.split('@')[0]}\n\n` +
-                                   `👇 *Neeche deleted message hai:*`;
-
-            // 4. Message type ke hisab se use dubara send karein
-            try {
-                // Agar normal text message tha
-                if (content.conversation || content.extendedTextMessage) {
-                    const text = content.conversation || content.extendedTextMessage.text;
-                    await conn.sendMessage(from, { 
-                        text: `${notificationText}\n\n💬 "${text}"`,
-                        mentions: [senderId, deleterId]
-                    });
-                } 
-                // Agar Media message tha (Image, Video, Audio, Document, Voice Note)
-                else {
-                    await conn.sendMessage(from, { 
-                        text: notificationText, 
-                        mentions: [senderId, deleterId] 
-                    });
-                    
-                    // Dubara wahi media forward/send kar dein
-                    await conn.sendMessage(from, { forward: originalMsg });
+            // Safe fallback agar getUserConfig function mojood na ho
+            let userConfig = {};
+            if (typeof getUserConfig === "function") {
+                try {
+                    userConfig = await getUserConfig() || {};
+                } catch (e) {
+                    userConfig = {};
                 }
-            } catch (err) {
-                console.error("Anti-Delete send karne me error:", err);
             }
+
+            const option = args[0]?.toLowerCase();
+
+            // 📊 STATUS CHECK
+            if (!option) {
+                const enabled = (userConfig.ANTI_DELETE || config.ANTI_DELETE) === 'true';
+                return reply(
+`╭━━━━ *ANTI DELETE MODE* ━━━━╮
+┃
+┃ 📊 *Current Status:* ${enabled ? '✅ ENABLED' : '❌ DISABLED'}
+┃
+┃ 📝 *Usage:*
+┃ • .antidelete on
+┃ • .antidelete off
+┃
+╰━━━━━━━━━━━━━━━━━━━━━━━╯
+
+> © KAMRAN-MINI-BOT ッ`
+                );
+            }
+
+            // ✅ ENABLE
+            if (["on", "enable", "true"].includes(option)) {
+                if (typeof updateUserConfig === "function") {
+                    userConfig.ANTI_DELETE = 'true';
+                    await updateUserConfig(userConfig);
+                }
+                process.env.ANTI_DELETE = 'true'; // Fallback
+                await react("✅");
+                return reply("✅ *Anti Delete Enabled Successfully!*");
+            }
+
+            // ❌ DISABLE
+            if (["off", "disable", "false"].includes(option)) {
+                if (typeof updateUserConfig === "function") {
+                    userConfig.ANTI_DELETE = 'false';
+                    await updateUserConfig(userConfig);
+                }
+                process.env.ANTI_DELETE = 'false'; // Fallback
+                await react("❌");
+                return reply("❌ *Anti Delete Disabled Successfully!*");
+            }
+
+            return reply("❌ Invalid option!\nUse: `.antidelete on` or `.antidelete off`");
+
+        } catch (error) {
+            console.error("Antidelete cmd error:", error);
+            return reply(`❌ Error: ${error.message}`);
         }
     }
 };
