@@ -1,77 +1,78 @@
-const config = require("../config");
-
 module.exports = {
-    name: "settings",
-    aliases: ["botsettings", "config"],
-    category: "owner",
-    description: "View all bot settings",
+  name: "onoff",
+  alias: ["setting", "toggle"],
+  desc: "Bot ke features ko on ya off karne ke liye",
+  category: "owner",
+  use: ".onoff <feature> <on/off>",
+  async execute(conn, mek, m, { args, isOwner, reply }) {
+    // Sirf Owner ya Sudo users ke liye allow karein
+    if (!isOwner) return reply("❌ Yeh command sirf bot ka owner use kar sakta hai!");
 
-    async execute(context) {
-        const { reply, react, isOwner, getUserConfig, number } = context;
-
-        try {
-            if (!isOwner) {
-                return reply("❌ Only the owner can use this command!");
-            }
-
-            await react("⚙️");
-            const userConfig = await getUserConfig();
-            
-            const settings = {
-                prefix: userConfig.PREFIX || config.PREFIX || '.',
-                mode: userConfig.MODE || config.MODE || 'public',
-                anticall: userConfig.ANTICALL === 'true' || userConfig.ANTICALL === true ? '✅' : '❌',
-                antiedit: userConfig.ANTIEDIT !== 'false' && userConfig.ANTIEDIT !== false ? '✅' : '❌',
-                antidelete: userConfig.ANTIDELETE !== 'false' && userConfig.ANTIDELETE !== false ? '✅' : '❌',
-                autoview: userConfig.AUTO_VIEW_STATUS === 'true' || userConfig.AUTO_VIEW_STATUS === true ? '✅' : '❌',
-                autoreact: userConfig.AUTO_REACT === 'true' || userConfig.AUTO_REACT === true ? '✅' : '❌',
-                antilink: userConfig.ANTI_LINK === 'true' || userConfig.ANTI_LINK === true ? '✅' : '❌',
-                antistatus: userConfig.ANTISTATUS === 'true' || userConfig.ANTISTATUS === true ? '✅' : '❌',
-                antimention: userConfig.ANTI_MENTION === 'true' || userConfig.ANTI_MENTION === true ? '✅' : '❌',
-                welcome: userConfig.WELCOME === 'true' || userConfig.WELCOME === true ? '✅' : '❌',
-                autolikestatus: userConfig.AUTO_LIKE_STATUS === 'true' || userConfig.AUTO_LIKE_STATUS === true ? '✅' : '❌',
-            };
-
-            const statusText = `╭━━━━━━━━━━━━━━━━━━━━━━━━━━╮
-┃  ⚙️ *BOT SETTINGS MENU*
-┃━━━━━━━━━━━━━━━━━━━━━━━━━━
-┃ 📱 *Number:* ${number || 'Unknown'}
-┃━━━━━━━━━━━━━━━━━━━━━━━━━━
-┃ 🎯 *Prefix:* ${settings.prefix}
-┃ 🌐 *Mode:* ${settings.mode === 'public' ? '🌐 PUBLIC' : '🔒 PRIVATE'}
-┃━━━━━━━━━━━━━━━━━━━━━━━━━━
-┃ 📵 *Anti-Call:* ${settings.anticall}
-┃ 🔗 *Anti-Link:* ${settings.antilink}
-┃ 🛡️ *Anti-Status:* ${settings.antistatus}
-┃ 👤 *Anti-Mention:* ${settings.antimention}
-┃ ✏️ *Anti-Edit:* ${settings.antiedit}
-┃ 🗑️ *Anti-Delete:* ${settings.antidelete}
-┃━━━━━━━━━━━━━━━━━━━━━━━━━━
-┃ 👀 *Status Seen (View):* ${settings.autoview}
-┃ ❤️ *Status Like:* ${settings.autolikestatus}
-┃ 💝 *Auto React:* ${settings.autoreact}
-┃ 👋 *Welcome Msg:* ${settings.welcome}
-╰━━━━━━━━━━━━━━━━━━━━━━━━━━╯
-
-📝 *Available Quick Commands:*
-• .set antilink on/off
-• .set antistatus on/off
-• .set mentionstatus on/off
-• .set antidel on/off
-• .set antiedit on/off
-• .set autoreact on/off
-• .set welcome on/off
-• .set statusseen on/off
-• .set statuslike on/off
-
-> © KAMRAN-MD ッ`;
-
-            await react("✅");
-            return reply(statusText);
-
-        } catch (error) {
-            console.error("Settings error:", error);
-            return reply(`❌ Error: ${error.message}`);
-        }
+    if (args.length < 2) {
+      return reply(
+        "⚙️ **Usage Example:**\n" +
+        "• `.onoff antilink on`\n" +
+        "• `.onoff anticall off`\n\n" +
+        "📋 **Available Features:**\n" +
+        "• `antilink`\n" +
+        "• `autoview`\n" +
+        "• `antidelete`\n" +
+        "• `anticall`\n" +
+        "• `autorecord`\n" +
+        "• `antiedit`\n" +
+        "• `antimention`\n" +
+        "• `antibug`"
+      );
     }
+
+    const featureKey = args[0].toLowerCase();
+    const action = args[1].toLowerCase();
+
+    if (!["on", "off"].includes(action)) {
+      return reply("❌ Invalid action! Please use `on` or `off`.");
+    }
+
+    const status = action === "on" ? "true" : "false";
+    let targetSetting = "";
+
+    // Feature mapping aapke config ke mutabiq
+    switch (featureKey) {
+      case "antilink":
+        targetSetting = "ANTI_LINK";
+        break;
+      case "autoview":
+        targetSetting = "AUTO_VIEW_STATUS";
+        break;
+      case "antidelete":
+        targetSetting = "ANTIDELETE";
+        break;
+      case "anticall":
+        targetSetting = "ANTICALL";
+        break;
+      case "autorecord":
+        targetSetting = "AUTO_RECORDING";
+        break;
+      case "antiedit":
+        targetSetting = "ANTIEDIT";
+        break;
+      case "antimention":
+        targetSetting = "ANTI_MENTION";
+        break;
+      case "antibug":
+        targetSetting = "ANTI_BUG";
+        break;
+      default:
+        return reply("❌ Yeh feature list mein maujood nahi hai!");
+    }
+
+    // Runtime par process.env update karna taake bot restart kiye bina kaam kare
+    process.env[targetSetting] = status;
+
+    // Success response
+    return reply(
+      `✅ Success!\n\n` +
+      `🛠️ **Feature:** ${targetSetting}\n` +
+      `📊 **Status:** ${status === "true" ? "🟢 ON (Enabled)" : "🔴 OFF (Disabled)"}`
+    );
+  }
 };
