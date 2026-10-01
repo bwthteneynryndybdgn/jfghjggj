@@ -1,121 +1,78 @@
-const fs = require("fs");
-const path = require("path");
-
-const dataDir = path.join(__dirname, "../database");
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
-const welcomePath = path.join(dataDir, "lib/welcome.js");
-
-function loadWelcomeSettings() {
-  try {
-    if (fs.existsSync(welcomePath)) {
-      return JSON.parse(fs.readFileSync(welcomePath, "utf8"));
-    }
-    return {};
-  } catch (e) {
-    console.error("Load Error:", e);
-    return {};
-  }
-}
-
-function saveWelcomeSettings(data) {
-  try {
-    fs.writeFileSync(welcomePath, JSON.stringify(data, null, 2));
-  } catch (e) {
-    console.error("Save Error:", e);
-  }
-}
+const config = require("../config");
 
 module.exports = {
-  name: "welcome",
-  aliases: ["setwelcome", "greet"],
-  category: "group",
-  description: "Set welcome message for new members",
-  
-  async execute(context) {
-    const { reply, react, from, args, q, isAdmins, isBotOwner, sender } = context;
-    
-    // Group check
-    if (!from || !from.endsWith("@g.us")) {
-      return reply("❌ This command only works in groups!");
-    }
-    
-    // Owner number check (Aapka number jo config mein hai)
-    const ownerNumber = "923147168309"; // Apna WhatsApp number yahan ensure kar lein
-    const senderNumber = sender ? sender.split('@')[0] : "";
-    const isOwner = isBotOwner || senderNumber === ownerNumber;
+    name: "welcome",
+    aliases: ["welcomeset", "setwelcome"],
+    category: "utility",
+    description: "Toggle welcome message feature",
 
-    // Agar na admin ho aur na hi owner, tab error dega
-    if (!isAdmins && !isOwner) {
-      return reply("❌ Only group admins can use this command!");
-    }
-    
-    try {
-      const settings = loadWelcomeSettings();
-      const action = args[0] ? args[0].toLowerCase() : null;
-      
-      if (!action || !["on", "off", "set", "status", "preview"].includes(action)) {
-        const groupSettings = settings[from] || { enabled: false, message: "Welcome {user} to {group}!" };
-        const currentStatus = groupSettings.enabled ? "✅ ON" : "❌ OFF";
-        
-        const menu = `╭━━━〔 *WELCOME SETTINGS* 〕━━━╮
-┃ 📊 *Status:* ${currentStatus}
+    async execute(context) {
+        const { reply, react, args, isOwner, getUserConfig, updateUserConfig } = context;
+
+        try {
+            if (!isOwner) {
+                return reply("❌ Only the owner can use this command!");
+            }
+
+            await react("👋");
+
+            // Safe fallback agar getUserConfig function mojood na ho
+            let userConfig = {};
+            if (typeof getUserConfig === "function") {
+                try {
+                    userConfig = await getUserConfig() || {};
+                } catch (e) {
+                    userConfig = {};
+                }
+            }
+
+            const option = args[0]?.toLowerCase();
+
+            // 📊 STATUS CHECK
+            if (!option) {
+                const enabled = (userConfig.WELCOME || config.WELCOME) === 'true';
+                return reply(
+`╭━━━━ *WELCOME MESSAGE* ━━━━╮
+┃
+┃ 📊 *Current Status:* ${enabled ? '✅ ENABLED' : '❌ DISABLED'}
+┃
 ┃ 📝 *Usage:*
-┃  .welcome on/off
-┃  .welcome set <text>
-┃  .welcome preview
-┃ 📌 *Variables:*
-┃  {user} , {group} , {desc}
-╰━━━━━━━━━━━━━━━━━━━━━╯`;
-        return reply(menu);
-      }
-      
-      if (action === "on") {
-        if (!settings[from]) settings[from] = { enabled: true, message: "Welcome {user} to {group}! 👋" };
-        settings[from].enabled = true;
-        saveWelcomeSettings(settings);
-        if (react) await react("✅");
-        return reply("✅ Welcome message has been *Enabled*.");
-      }
-      
-      if (action === "off") {
-        if (!settings[from]) settings[from] = { enabled: false, message: "Welcome {user} to {group}! 👋" };
-        settings[from].enabled = false;
-        saveWelcomeSettings(settings);
-        if (react) await react("✅");
-        return reply("❌ Welcome message has been *Disabled*.");
-      }
-      
-      if (action === "set") {
-        const text = q || args.slice(1).join(" ");
-        if (!text) return reply("❌ Please provide the welcome text!\nExample: `.welcome set Hello {user}!`");
-        
-        if (!settings[from]) settings[from] = { enabled: true };
-        settings[from].message = text;
-        settings[from].enabled = true;
-        saveWelcomeSettings(settings);
-        
-        if (react) await react("✅");
-        return reply(`✅ *Success!* Welcome message updated.\n\n*Preview:* ${text.replace(/{user}/g, "@user").replace(/{group}/g, "Group Name")}`);
-      }
-      
-      if (action === "preview" || action === "status") {
-        const groupSettings = settings[from];
-        if (!groupSettings || !groupSettings.message) {
-          return reply("❌ No welcome message found for this group.");
+┃ • .welcome on
+┃ • .welcome off
+┃
+╰━━━━━━━━━━━━━━━━━━━━━━━╯
+
+> © KAMRAN-MINI-BOT ッ`
+                );
+            }
+
+            // ✅ ENABLE
+            if (["on", "enable", "true"].includes(option)) {
+                if (typeof updateUserConfig === "function") {
+                    userConfig.WELCOME = 'true';
+                    await updateUserConfig(userConfig);
+                }
+                process.env.WELCOME = 'true'; // Fallback
+                await react("✅");
+                return reply("✅ *Welcome Message Enabled Successfully!*");
+            }
+
+            // ❌ DISABLE
+            if (["off", "disable", "false"].includes(option)) {
+                if (typeof updateUserConfig === "function") {
+                    userConfig.WELCOME = 'false';
+                    await updateUserConfig(userConfig);
+                }
+                process.env.WELCOME = 'false'; // Fallback
+                await react("❌");
+                return reply("❌ *Welcome Message Disabled Successfully!*");
+            }
+
+            return reply("❌ Invalid option!\nUse: `.welcome on` or `.welcome off`");
+
+        } catch (error) {
+            console.error("Welcome cmd error:", error);
+            return reply(`❌ Error: ${error.message}`);
         }
-        const preview = groupSettings.message
-          .replace(/{user}/g, "@User")
-          .replace(/{group}/g, "Group Name")
-          .replace(/{desc}/g, "Group Description");
-          
-        return reply(`*Current Welcome Preview:* \n\n${preview}`);
-      }
-      
-    } catch (error) {
-      console.error("Welcome CMD Error:", error);
-      return reply("❌ Something went wrong while saving settings.");
     }
-  }
 };
