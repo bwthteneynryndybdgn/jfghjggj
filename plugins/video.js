@@ -16,15 +16,19 @@ module.exports = {
         return reply("❓ Example: .video Alone Alan Walker");
       }
 
+      // Search Reaction
       await react("🔍");
 
+      // Search Video
       const search = await yts(q);
+
       if (!search || !search.videos.length) {
         return reply("❌ No results found!");
       }
 
       const vid = search.videos[0];
 
+      // Caption
       const caption = `╭━━〔 🎬 VIDEO FOUND 〕━━━╮
 ┃ 🏷️ Title : ${vid.title}
 ┃ ⏱️ Duration : ${vid.timestamp}
@@ -33,6 +37,7 @@ module.exports = {
 
 ⏳ Downloading video...`;
 
+      // Send Thumbnail
       await bot.sendMessage(
         from,
         {
@@ -44,22 +49,25 @@ module.exports = {
 
       await react("⏳");
 
+      // Download Video API
       const api = `https://yt-dl.officialhectormanuel.workers.dev/?url=${encodeURIComponent(
         vid.url
       )}`;
 
       const { data } = await axios.get(api);
-      
-      // Console mein check karne ke liye ki API kya bhej rahi hai
-      console.log("API Response:", data);
 
-      // Sabhi possible video keys ko check kar rahe hain
-      const videoUrl = data.video || data.mp4 || data.download || data.url || data.result;
-
-      if (!data || !videoUrl) {
-        return reply("❌ Could not fetch video. API response didn't include a video link.");
+      if (!data || !data.status || !data.videos) {
+        return reply("❌ Could not fetch video. Try another query.");
       }
 
+      // API response ke mutabiq 360p ya available pehli video quality select karna
+      const videoUrl = data.videos["360"] || data.videos["270"] || data.videos[Object.keys(data.videos)[0]];
+
+      if (!videoUrl) {
+        return reply("❌ Video stream not found in this quality.");
+      }
+
+      // Send Video
       await bot.sendMessage(
         from,
         {
