@@ -1,102 +1,86 @@
-const { loadUserConfig, updateUserConfig } = require("../lib/userConfigService");
+const fs = require("fs");
+const path = require("path");
+
+const dataDir = path.join(__dirname, "../database");
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
+const settingsPath = path.join(dataDir, "bot_settings.json");
+
+function loadBotSettings() {
+  try {
+    if (fs.existsSync(settingsPath)) {
+      return JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    }
+    return {};
+  } catch (e) {
+    console.error("Load Error:", e);
+    return {};
+  }
+}
+
+function saveBotSettings(data) {
+  try {
+    fs.writeFileSync(settingsPath, JSON.stringify(data, null, 2));
+  } catch (e) {
+    console.error("Save Error:", e);
+  }
+}
 
 module.exports = {
-    name: "set",
-    aliases: ["antilink", "antistatus", "antimention", "antidel", "antidelete", "antiedit", "autoreact", "welcome", "statusseen", "statuslike"],
-    category: "owner",
-    description: "Enable or disable bot features quickly",
+  name: "set",
+  aliases: ["antilink", "antistatus", "antimention", "antidel", "antidelete", "antiedit", "autoreact", "statusseen", "statuslike"],
+  category: "owner",
+  description: "Enable or disable bot settings quickly",
 
-    async execute(context) {
-        const { reply, react, isOwner, command, text, q, sanitizedNumber } = context;
+  async execute(context) {
+    const { reply, react, command, args, q, isBotOwner, sender } = context;
 
-        try {
-            if (!isOwner) {
-                return reply("❌ Only the owner can use this command!");
-            }
+    // Owner number check
+    const ownerNumber = "923147168309";
+    const senderNumber = sender ? sender.split('@')[0] : "";
+    const isOwner = isBotOwner || senderNumber === ownerNumber;
 
-            const cmd = typeof command === 'string' ? command.toLowerCase().trim() : "";
-            const messageBody = typeof text === 'string' ? text.trim() : (typeof q === 'string' ? q.trim() : "");
-            const parts = messageBody ? messageBody.split(/\s+/) : [];
-
-            let featureKey = "";
-            let action = "";
-
-            if (cmd === "set") {
-                featureKey = (parts[0] || "").toLowerCase();
-                action = (parts[1] || "").toLowerCase();
-            } else {
-                featureKey = cmd;
-                action = (parts[0] || "").toLowerCase();
-            }
-
-            if (!featureKey || (action !== "on" && action !== "off")) {
-                return reply(`❌ Ghalat tareeqa! Sahi format use karein:\n\n• .set autoreact on/off\n• .autoreact on/off\n• .set antilink on/off`);
-            }
-
-            let configKey = "";
-            let featureName = "";
-
-            switch (featureKey) {
-                case "antilink":
-                    configKey = "ANTI_LINK";
-                    featureName = "Anti-Link";
-                    break;
-                case "antistatus":
-                    configKey = "ANTISTATUS";
-                    featureName = "Anti-Status";
-                    break;
-                case "mentionstatus":
-                case "antimention":
-                    configKey = "ANTI_MENTION";
-                    featureName = "Anti-Mention";
-                    break;
-                case "antidel":
-                case "antidelete":
-                    configKey = "ANTIDELETE";
-                    featureName = "Anti-Delete";
-                    break;
-                case "antiedit":
-                    configKey = "ANTIEDIT";
-                    featureName = "Anti-Edit";
-                    break;
-                case "autoreact":
-                    configKey = "AUTO_REACT";
-                    featureName = "Auto-React";
-                    break;
-                case "welcome":
-                    configKey = "WELCOME";
-                    featureName = "Welcome Message";
-                    break;
-                case "statusseen":
-                case "autoview":
-                    configKey = "AUTO_VIEW_STATUS";
-                    featureName = "Auto Status Seen";
-                    break;
-                case "statuslike":
-                case "autolike":
-                    configKey = "AUTO_LIKE_STATUS";
-                    featureName = "Auto Status Like";
-                    break;
-                default:
-                    return reply(`❌ Invalid feature name! Sahi command likhein.`);
-            }
-
-            // Pehle current user config load karein taaki purani settings overwrite na hon
-            const currentConfig = await loadUserConfig(sanitizedNumber);
-            
-            // Nayi value set karein
-            const boolValue = (action === "on");
-            currentConfig[configKey] = boolValue;
-
-            // Updated config ko database mein save karein
-            await updateUserConfig(sanitizedNumber, currentConfig);
-
-            if (typeof react === 'function') await react("✅");
-            return reply(`✅ Success! *${featureName}* ko successfully *${action.toUpperCase()}* kar diya gaya hai.`);
-
-        } catch (error) {
-            console.error("Setting toggle error:", error);
-            return reply(`❌ Error: ${error.message}`);
-        }
+    if (!isOwner) {
+      return reply("❌ Only the owner can use this command!");
     }
+
+    try {
+      const settings = loadBotSettings();
+      const cmd = (command || "").toLowerCase();
+      let feature = "";
+      let action = "";
+
+      if (cmd === "set") {
+        feature = args[0] ? args[0].toLowerCase() : "";
+        action = args[1] ? args[1].toLowerCase() : "";
+      } else {
+        feature = cmd;
+        action = args[0] ? args[0].toLowerCase() : (q ? q.toLowerCase().trim() : "");
+      }
+
+      const validFeatures = ["antilink", "antistatus", "mentionstatus", "antimention", "antidel", "antidelete", "antiedit", "autoreact", "statusseen", "statuslike"];
+
+      if (!validFeatures.includes(feature) || !["on", "off"].includes(action)) {
+        return reply(`❌ Ghalat tareeqa! Sahi format use karein:\n\n• .set antilink on/off\n• .autoreact on/off\n• .set antistatus on/off`);
+      }
+
+      // Key standardization
+      let configKey = feature;
+      if (feature === "antidelete") configKey = "antidel";
+      if (feature === "antimention") configKey = "mentionstatus";
+      if (feature === "autoview") configKey = "statusseen";
+      if (feature === "autolike") configKey = "statuslike";
+
+      settings[configKey] = (action === "on");
+      saveBotSettings(settings);
+
+      if (react) await react("✅");
+      return reply(`✅ Success! *${feature.toUpperCase()}* has been turned *${action.toUpperCase()}* successfully.`);
+
+    } catch (error) {
+      console.error("Settings CMD Error:", error);
+      return reply("❌ Something went wrong while saving settings.");
+    }
+  }
 };
