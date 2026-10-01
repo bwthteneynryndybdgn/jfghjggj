@@ -16,19 +16,15 @@ module.exports = {
         return reply("❓ Example: .video Alone Alan Walker");
       }
 
-      // Search Reaction
       await react("🔍");
 
-      // Search Video
       const search = await yts(q);
-
       if (!search || !search.videos.length) {
         return reply("❌ No results found!");
       }
 
       const vid = search.videos[0];
 
-      // Caption
       const caption = `╭━━〔 🎬 VIDEO FOUND 〕━━━╮
 ┃ 🏷️ Title : ${vid.title}
 ┃ ⏱️ Duration : ${vid.timestamp}
@@ -37,7 +33,6 @@ module.exports = {
 
 ⏳ Downloading video...`;
 
-      // Send Thumbnail
       await bot.sendMessage(
         from,
         {
@@ -49,21 +44,22 @@ module.exports = {
 
       await react("⏳");
 
-      // Download Video (API Endpoint)
       const api = `https://yt-dl.officialhectormanuel.workers.dev/?url=${encodeURIComponent(
         vid.url
       )}`;
 
       const { data } = await axios.get(api);
+      
+      // Console mein check karne ke liye ki API kya bhej rahi hai
+      console.log("API Response:", data);
 
-      // Check if video link is available in response (commonly data.video or data.mp4, adjusting based on API)
-      const videoUrl = data.video || data.mp4 || data.download;
+      // Sabhi possible video keys ko check kar rahe hain
+      const videoUrl = data.video || data.mp4 || data.download || data.url || data.result;
 
-      if (!data || !data.status || !videoUrl) {
-        return reply("❌ Could not fetch video. Try another query.");
+      if (!data || !videoUrl) {
+        return reply("❌ Could not fetch video. API response didn't include a video link.");
       }
 
-      // Send Video
       await bot.sendMessage(
         from,
         {
