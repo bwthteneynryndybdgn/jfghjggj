@@ -15,19 +15,19 @@ module.exports = {
                 return reply("❌ Only the owner can use this command!");
             }
 
-            const cmd = typeof command === 'string' ? command.toLowerCase() : "";
-            const rawText = typeof text === 'string' ? text.trim().toLowerCase() : (typeof q === 'string' ? q.trim().toLowerCase() : "");
-            const args = rawText ? rawText.split(/\s+/) : [];
+            const cmd = typeof command === 'string' ? command.toLowerCase().trim() : "";
+            const messageBody = typeof text === 'string' ? text.trim() : (typeof q === 'string' ? q.trim() : "");
+            const parts = messageBody ? messageBody.split(/\s+/) : [];
 
             let featureKey = "";
             let action = "";
 
             if (cmd === "set") {
-                featureKey = (args[0] || "").toLowerCase();
-                action = (args[1] || "").toLowerCase();
+                featureKey = (parts[0] || "").toLowerCase();
+                action = (parts[1] || "").toLowerCase();
             } else {
                 featureKey = cmd;
-                action = (args[0] || "").toLowerCase();
+                action = (parts[0] || "").toLowerCase();
             }
 
             if (!featureKey || (action !== "on" && action !== "off")) {
