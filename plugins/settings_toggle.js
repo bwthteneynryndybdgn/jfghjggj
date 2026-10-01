@@ -12,21 +12,20 @@ module.exports = {
                 return reply("❌ Only the owner can use this command!");
             }
 
-            // Text ya q se arguments nikalne ka sahi tareeqa
-            const fullText = (text || q || "").trim();
-            const args = fullText.split(" ");
-            
+            // Safe string conversions to completely prevent undefined reading errors
+            const cmd = typeof command === 'string' ? command.toLowerCase() : "";
+            const rawText = typeof text === 'string' ? text.trim().toLowerCase() : (typeof q === 'string' ? q.trim().toLowerCase() : "");
+            const args = rawText ? rawText.split(/\s+/) : [];
+
             let featureKey = "";
             let action = "";
 
-            if (command === "set") {
-                // Agar command .set hai, toh pehla argument feature hoga aur doosra on/off
-                featureKey = (args[1] || "").toLowerCase();
-                action = (args[2] || "").toLowerCase();
+            if (cmd === "set") {
+                featureKey = (args[0] || "").toLowerCase();
+                action = (args[1] || "").toLowerCase();
             } else {
-                // Agar direct command hai (jaise .autoreact on)
-                featureKey = command.toLowerCase();
-                action = (args[1] || args[0] || "").toLowerCase();
+                featureKey = cmd;
+                action = (args[0] || "").toLowerCase();
             }
 
             if (!featureKey || (action !== "on" && action !== "off")) {
@@ -81,12 +80,12 @@ module.exports = {
                     return reply(`❌ Invalid feature name! Sahi command likhein.`);
             }
 
-            const { updateUserConfig } = require('../userConfigService') || require('./userConfigService') || {};
+            const { updateUserConfig } = require('../lib/userConfigService') || require('../userConfigService') || require('./userConfigService') || {};
             
             if (typeof updateUserConfig === 'function') {
                 const boolValue = (action === "on");
                 await updateUserConfig(sanitizedNumber, { [configKey]: boolValue });
-                await react("✅");
+                if (typeof react === 'function') await react("✅");
                 return reply(`✅ Success! *${featureName}* ko successfully *${action.toUpperCase()}* kar diya gaya hai.`);
             } else {
                 return reply(`❌ Error: Update service not found.`);
