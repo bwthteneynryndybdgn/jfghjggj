@@ -1,36 +1,72 @@
 module.exports = {
-  name: "autoreact",
-  aliases: ["customautoreact"],
-  async execute({ socket, msg, args, sender, sanitizedNumber, loadUserConfig, updateUserConfig }) {
-    try {
-      const option = (args[0] || "").toLowerCase();
-      const userConfig = await loadUserConfig(sanitizedNumber);
+    name: "antidelete",
+    aliases: ["antidel", " antideletemsg"],
+    category: "utility",
+    description: "Toggle anti-delete message tracking",
 
-      if (!["on", "off"].includes(option)) {
-        const status = userConfig.AUTO_REACT === "true";
-        return await socket.sendMessage(
-          sender,
-          { text: `🤖 Auto React is currently ${status ? "✅ ON" : "❌ OFF"}\n\nUse:\n.autoreact on\n.autoreact off` },
-          { quoted: msg }
-        );
-      }
+    async execute(context) {
+        const { reply, react, args, isOwner, getUserConfig, updateUserConfig } = context;
 
-      userConfig.AUTO_REACT = option === "on" ? "true" : "false";
-      await updateUserConfig(sanitizedNumber, userConfig);
+        try {
+            if (!isOwner) {
+                return reply("❌ Only the owner can use this command!");
+            }
 
-      await socket.sendMessage(
-        sender,
-        { text: `✅ Auto React ${option === "on" ? "Enabled" : "Disabled"}` },
-        { quoted: msg }
-      );
+            await react("🗑️");
 
-    } catch (e) {
-      console.log("Autoreact cmd error:", e);
-      await socket.sendMessage(
-        sender,
-        { text: "❌ Error while changing Auto React setting." },
-        { quoted: msg }
-      );
+            const userConfig = await getUserConfig();
+            const option = args[0]?.toLowerCase();
+
+            // 📊 STATUS CHECK
+            if (!option) {
+                const enabled = userConfig.ANTIDELETE === 'true';
+                return reply(
+`╭━━━━ *ANTI DELETE MODE* ━━━━╮
+┃
+┃ 📊 *Current Status:* ${enabled ? '✅ ENABLED' : '❌ DISABLED'}
+┃
+┃ 📝 *Usage:*
+┃ • .antidelete on
+┃ • .antidelete off
+┃
+┃ ℹ️ Bot will catch and resend 
+┃ deleted messages
+┃
+╰━━━━━━━━━━━━━━━━━━━━━━━╯
+
+> © KAMRAN-MD ッ`
+                );
+            }
+
+            // ✅ ENABLE
+            if (["on", "enable", "true"].includes(option)) {
+                userConfig.ANTIDELETE = 'true';
+                await updateUserConfig(userConfig);
+                await react("✅");
+                return reply(
+`✅ *Anti-Delete Enabled!*
+
+Bot will now capture and send deleted messages.`
+                );
+            }
+
+            // ❌ DISABLE
+            if (["off", "disable", "false"].includes(option)) {
+                userConfig.ANTIDELETE = 'false';
+                await updateUserConfig(userConfig);
+                await react("❌");
+                return reply(
+`❌ *Anti-Delete Disabled!*
+
+Bot will no longer track deleted messages.`
+                );
+            }
+
+            return reply("❌ Invalid option!\nUse: `.antidelete on` or `.antidelete off`");
+
+        } catch (error) {
+            console.error("AntiDelete error:", error);
+            return reply("❌ Something went wrong while updating anti-delete setting.");
+        }
     }
-  },
 };
