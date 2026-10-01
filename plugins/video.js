@@ -1,76 +1,85 @@
-const axios = require("axios");
 const yts = require("yt-search");
-const config = require("../config");
+const axios = require("axios");
 
 module.exports = {
-    name: "ytmp4",
-    aliases: ["video", "yt", "ytvideo"],
-    category: "downloader",
-    description: "Download YouTube video",
+  name: "video",
+  alias: ["vid", "ytmp4", "mp4"],
+  category: "download",
+  desc: "Download videos using OfficialHectoManuel API",
 
-    async execute(context) {
-        const { reply, react, q, socket, sock, conn, from } = context;
-        const client = socket || sock || conn;
+  async execute(context) {
+    const { socket, sock, conn, from, q, reply, m, react } = context;
+    const bot = socket || sock || conn;
 
-        try {
-            await react("🎬");
+    try {
+      if (!q) {
+        return reply("❓ Example: .video Alone Alan Walker");
+      }
 
-            if (!q) {
-                return reply(
-                    "❌ Please provide a YouTube URL or search term!\n\n" +
-                    "Example: .video https://youtu.be/...\n" +
-                    "Or: .video Never Gonna Give You Up"
-                );
-            }
+      // Search Reaction
+      await react("🔍");
 
-            let videoUrl = q;
-            let title = "YouTube Video";
+      // Search Video
+      const search = await yts(q);
 
-            // 🔍 Search if not URL
-            if (!q.includes("youtube.com") && !q.includes("youtu.be")) {
-                await reply("🔍 Searching...");
-                const search = await yts(q);
+      if (!search || !search.videos.length) {
+        return reply("❌ No results found!");
+      }
 
-                if (!search.videos || search.videos.length === 0) {
-                    return reply("❌ No results found.");
-                }
+      const vid = search.videos[0];
 
-                const video = search.videos[0];
-                videoUrl = video.url;
-                title = video.title;
-            }
+      // Caption
+      const caption = `╭━━〔 🎬 VIDEO FOUND 〕━━━╮
+┃ 🏷️ Title : ${vid.title}
+┃ ⏱️ Duration : ${vid.timestamp}
+┃ 👁️ Views : ${vid.views.toLocaleString()}
+╰━━━━━━━━━━━━━━━━━╯
 
-            // ✅ NEW API
-            const apiUrl =
-                `https://zaynixapi12.vercel.app/api/ytmp4-fixed` +
-                `?url=${encodeURIComponent(videoUrl)}` +
-                `&apiKey=zaynixapi`;
+⏳ Downloading video...`;
 
-            const { data } = await axios.get(apiUrl, { timeout: 30000 });
+      // Send Thumbnail
+      await bot.sendMessage(
+        from,
+        {
+          image: { url: vid.thumbnail },
+          caption: caption
+        },
+        { quoted: m }
+      );
 
-            if (!data || !data.status || !data.url) {
-                return reply("❌ Failed to download video. Try again later.");
-            }
+      await react("⏳");
 
-            const downloadUrl = data.url;
-            title = data.title || title;
+      // Download Video (API Endpoint)
+      const api = `https://yt-dl.officialhectormanuel.workers.dev/?url=${encodeURIComponent(
+        vid.url
+      )}`;
 
-            await reply(`🎬 *${title}*\n\n⏳ Sending video...`);
+      const { data } = await axios.get(api);
 
-            if (client && from) {
-                await client.sendMessage(from, {
-                    video: { url: downloadUrl },
-                    caption: `🎬 *${title}*\n\n> © KAMRAN-MINI-BOT ッ`,
-                    mimetype: "video/mp4"
-                });
-            }
+      // Check if video link is available in response (commonly data.video or data.mp4, adjusting based on API)
+      const videoUrl = data.video || data.mp4 || data.download;
 
-            await react("✅");
+      if (!data || !data.status || !videoUrl) {
+        return reply("❌ Could not fetch video. Try another query.");
+      }
 
-        } catch (e) {
-            console.error("ytmp4 error:", e.message);
-            await react("❌");
-            return reply(`❌ Error: ${e.message}`);
-        }
+      // Send Video
+      await bot.sendMessage(
+        from,
+        {
+          video: { url: videoUrl },
+          mimetype: "video/mp4",
+          fileName: `${vid.title}.mp4`,
+          caption: `🎬 *${vid.title}*`
+        },
+        { quoted: m }
+      );
+
+      await react("✅");
+    } catch (err) {
+      console.error(err);
+      await react("❌");
+      reply("⚠️ Download failed: " + err.message);
     }
+  }
 };
