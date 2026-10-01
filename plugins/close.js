@@ -40,7 +40,7 @@ async function checkAdminStatus(conn, chatId, senderId) {
 
 module.exports = {
     name: "close",
-    aliases: ["groupclose", "lock"],
+    aliases: ["groupclose", "mute"],
     category: "group",
     description: "Close the group (Admins only)",
 
