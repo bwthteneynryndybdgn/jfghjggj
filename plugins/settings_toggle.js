@@ -1,3 +1,6 @@
+const config = require("../config");
+const { updateUserConfig } = require("../lib/userConfigService");
+
 module.exports = {
     name: "set",
     aliases: ["antilink", "antistatus", "antimention", "antidel", "antidelete", "antiedit", "autoreact", "welcome", "statusseen", "statuslike"],
@@ -12,7 +15,6 @@ module.exports = {
                 return reply("❌ Only the owner can use this command!");
             }
 
-            // Safe string conversions to completely prevent undefined reading errors
             const cmd = typeof command === 'string' ? command.toLowerCase() : "";
             const rawText = typeof text === 'string' ? text.trim().toLowerCase() : (typeof q === 'string' ? q.trim().toLowerCase() : "");
             const args = rawText ? rawText.split(/\s+/) : [];
@@ -80,8 +82,6 @@ module.exports = {
                     return reply(`❌ Invalid feature name! Sahi command likhein.`);
             }
 
-            const { updateUserConfig } = require('../lib/userConfigService') || require('../userConfigService') || require('./userConfigService') || {};
-            
             if (typeof updateUserConfig === 'function') {
                 const boolValue = (action === "on");
                 await updateUserConfig(sanitizedNumber, { [configKey]: boolValue });
