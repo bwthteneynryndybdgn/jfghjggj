@@ -1,116 +1,66 @@
-const fs = require("fs");
-const path = require("path");
-
-const antiBotPath = path.join(__dirname, "../../data/antibot.json");
-
-function loadAntiBotSettings() {
-  try {
-    if (fs.existsSync(antiBotPath)) {
-      return JSON.parse(fs.readFileSync(antiBotPath, "utf8"));
-    }
-    return {};
-  } catch {
-    return {};
-  }
-}
-
-function saveAntiBotSettings(data) {
-  fs.writeFileSync(antiBotPath, JSON.stringify(data, null, 2));
-}
+const config = require("../config");
 
 module.exports = {
-  name: "antibot",
-  aliases: ["nobot"],
-  category: "group",
-  description: "Enable/disable anti-bot protection in groups",
-  
-  async execute(context) {
-    const { reply, react, socket, sock, conn, client, from, args, isAdmins, isBotOwner, isBotAdmins } = context;
-    const botClient = socket || sock || conn || client;
-    
-    if (!from || !from.endsWith("@g.us")) {
-      return reply("❌ This command only works in groups!");
-    }
-    
-    if (!isAdmins && !isBotOwner) {
-      return reply("❌ Only group admins can use this command!");
-    }
-    
-    if (!isBotAdmins) {
-      return reply("❌ Bot needs admin rights to use this feature!");
-    }
-    
-    try {
-      await react("🤖");
-      
-      const settings = loadAntiBotSettings();
-      const action = args[0]?.toLowerCase();
-      
-      if (!action || !["on", "off", "status"].includes(action)) {
-        const currentStatus = settings[from] ? "✅ ON" : "❌ OFF";
-        return reply(`╭━━━━━━━━━━━━━━━╮
-┃  🤖 *ANTI-BOT*
-┃━━━━━━━━━━━━━━━
-┃  📊 Status: ${currentStatus}
-┃━━━━━━━━━━━━━━━
-┃  📝 *Usage:*
-┃  .antibot on
-┃  .antibot off
-┃  .antibot status
-╰━━━━━━━━━━━━━━━╯
+    name: "antibot",
+    aliases: ["botblock", "toggleantibot"],
+    category: "moderation",
+    description: "Toggle anti-bot feature to block other bots",
 
-> KAMRAN-MINI-BOT`);
-      }
-      
-      if (action === "status") {
-        const currentStatus = settings[from] ? "✅ Enabled" : "❌ Disabled";
-        return reply(`╭━━━━━━━━━━━━━━━╮
-┃  🤖 *ANTI-BOT STATUS*
-┃━━━━━━━━━━━━━━━
-┃  📊 ${currentStatus}
-┃━━━━━━━━━━━━━━━
-┃  ℹ️ When enabled, bots
-┃  joining will be removed
-╰━━━━━━━━━━━━━━━╯`);
-      }
-      
-      if (action === "on") {
-        settings[from] = true;
-        saveAntiBotSettings(settings);
-        await react("✅");
-        return reply(`╭━━━━━━━━━━━━━━━╮
-┃  🤖 *ANTI-BOT ENABLED*
-┃━━━━━━━━━━━━━━━
-┃  ✅ Protection: ON
-┃  🛡️ Bots will be removed
-┃  automatically when joining
-╰━━━━━━━━━━━━━━━╯
+    async execute(context) {
+        const { reply, react, args, isOwner, getUserConfig, updateUserConfig } = context;
 
-> KAMRAN-MINI-BOT`);
-      }
-      
-      if (action === "off") {
-        settings[from] = false;
-        saveAntiBotSettings(settings);
-        await react("✅");
-        return reply(`╭━━━━━━━━━━━━━━━╮
-┃  🤖 *ANTI-BOT DISABLED*
-┃━━━━━━━━━━━━━━━
-┃  ❌ Protection: OFF
-┃  ⚠️ Bots can join freely
-╰━━━━━━━━━━━━━━━╯
+        try {
+            if (!isOwner) return reply("❌ Only the owner can use this command!");
+            await react("🤖");
 
-> KAMRAN-MINI-BOT`);
-      }
-      
-    } catch (error) {
-      console.error("AntiBot error:", error);
-      return reply(`❌ Error: ${error.message}`);
+            let userConfig = {};
+            if (typeof getUserConfig === "function") {
+                try { userConfig = await getUserConfig() || {}; } catch (e) { userConfig = {}; }
+            }
+
+            const option = args[0]?.toLowerCase();
+
+            if (!option) {
+                const enabled = (userConfig.ANTI_BOT || config.ANTI_BOT) === 'true';
+                return reply(
+`╭━━━━ *ANTI BOT MODE* ━━━━╮
+┃
+┃ 📊 *Current Status:* ${enabled ? '✅ ENABLED' : '❌ DISABLED'}
+┃
+┃ 📝 *Usage:*
+┃ • .antibot on
+┃ • .antibot off
+┃
+╰━━━━━━━━━━━━━━━━━━━━━━━╯
+
+> © KAMRAN-MINI-BOT ッ`
+                );
+            }
+
+            if (["on", "enable", "true"].includes(option)) {
+                if (typeof updateUserConfig === "function") {
+                    userConfig.ANTI_BOT = 'true';
+                    await updateUserConfig(userConfig);
+                }
+                process.env.ANTI_BOT = 'true';
+                await react("✅");
+                return reply("✅ *Anti Bot Enabled Successfully!*");
+            }
+
+            if (["off", "disable", "false"].includes(option)) {
+                if (typeof updateUserConfig === "function") {
+                    userConfig.ANTI_BOT = 'false';
+                    await updateUserConfig(userConfig);
+                }
+                process.env.ANTI_BOT = 'false';
+                await react("❌");
+                return reply("❌ *Anti Bot Disabled Successfully!*");
+            }
+
+            return reply("❌ Invalid option!\nUse: `.antibot on` or `.antibot off`");
+        } catch (error) {
+            console.error("Antibot cmd error:", error);
+            return reply(`❌ Error: ${error.message}`);
+        }
     }
-  }
-};
-
-module.exports.isAntiBot = (groupId) => {
-  const settings = loadAntiBotSettings();
-  return settings[groupId] === true;
 };
