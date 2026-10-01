@@ -203,7 +203,7 @@ cmd({
 // Open group
 cmd({
     name: "open",
-    aliases: ["opengroup"],
+    aliases: ["unmute"],
     category: "group",
     desc: "Open group (anyone can send)"
 }, async (context) => {
