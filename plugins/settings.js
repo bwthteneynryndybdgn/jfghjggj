@@ -1,8 +1,10 @@
+const config = require("../config"); // Path theek kar liya hai
+
 module.exports = {
-    name: "antidelete",
-    aliases: ["antidel", " antideletemsg"],
+    name: "autoreact",
+    aliases: ["autoreaction", "setreact"],
     category: "utility",
-    description: "Toggle anti-delete message tracking",
+    description: "Toggle auto reaction feature",
 
     async execute(context) {
         const { reply, react, args, isOwner, getUserConfig, updateUserConfig } = context;
@@ -12,61 +14,65 @@ module.exports = {
                 return reply("❌ Only the owner can use this command!");
             }
 
-            await react("🗑️");
+            await react("💖");
 
-            const userConfig = await getUserConfig();
+            // Safe fallback agar getUserConfig function mojood na ho
+            let userConfig = {};
+            if (typeof getUserConfig === "function") {
+                try {
+                    userConfig = await getUserConfig() || {};
+                } catch (e) {
+                    userConfig = {};
+                }
+            }
+
             const option = args[0]?.toLowerCase();
 
             // 📊 STATUS CHECK
             if (!option) {
-                const enabled = userConfig.ANTIDELETE === 'true';
+                const enabled = (userConfig.AUTO_REACT || config.AUTO_REACT) === 'true';
                 return reply(
-`╭━━━━ *ANTI DELETE MODE* ━━━━╮
+`╭━━━━ *AUTO REACT MODE* ━━━━╮
 ┃
 ┃ 📊 *Current Status:* ${enabled ? '✅ ENABLED' : '❌ DISABLED'}
 ┃
 ┃ 📝 *Usage:*
-┃ • .antidelete on
-┃ • .antidelete off
-┃
-┃ ℹ️ Bot will catch and resend 
-┃ deleted messages
+┃ • .autoreact on
+┃ • .autoreact off
 ┃
 ╰━━━━━━━━━━━━━━━━━━━━━━━╯
 
-> © KAMRAN-MD ッ`
+> © KAMRAN-MINI-BOT ッ`
                 );
             }
 
             // ✅ ENABLE
             if (["on", "enable", "true"].includes(option)) {
-                userConfig.ANTIDELETE = 'true';
-                await updateUserConfig(userConfig);
+                if (typeof updateUserConfig === "function") {
+                    userConfig.AUTO_REACT = 'true';
+                    await updateUserConfig(userConfig);
+                }
+                process.env.AUTO_REACT = 'true'; // Fallback
                 await react("✅");
-                return reply(
-`✅ *Anti-Delete Enabled!*
-
-Bot will now capture and send deleted messages.`
-                );
+                return reply("✅ *Auto React Enabled Successfully!*");
             }
 
             // ❌ DISABLE
             if (["off", "disable", "false"].includes(option)) {
-                userConfig.ANTIDELETE = 'false';
-                await updateUserConfig(userConfig);
+                if (typeof updateUserConfig === "function") {
+                    userConfig.AUTO_REACT = 'false';
+                    await updateUserConfig(userConfig);
+                }
+                process.env.AUTO_REACT = 'false'; // Fallback
                 await react("❌");
-                return reply(
-`❌ *Anti-Delete Disabled!*
-
-Bot will no longer track deleted messages.`
-                );
+                return reply("❌ *Auto React Disabled Successfully!*");
             }
 
-            return reply("❌ Invalid option!\nUse: `.antidelete on` or `.antidelete off`");
+            return reply("❌ Invalid option!\nUse: `.autoreact on` or `.autoreact off`");
 
         } catch (error) {
-            console.error("AntiDelete error:", error);
-            return reply("❌ Something went wrong while updating anti-delete setting.");
+            console.error("Autoreact cmd error:", error);
+            return reply(`❌ Error: ${error.message}`);
         }
     }
 };
