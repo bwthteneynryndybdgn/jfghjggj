@@ -5,27 +5,32 @@ module.exports = {
     description: "Enable or disable bot features quickly",
 
     async execute(context) {
-        const { reply, react, isOwner, command, q, sanitizedNumber } = context;
+        const { reply, react, isOwner, command, text, q, sanitizedNumber } = context;
 
         try {
             if (!isOwner) {
                 return reply("❌ Only the owner can use this command!");
             }
 
+            // Text ya q se arguments nikalne ka sahi tareeqa
+            const fullText = (text || q || "").trim();
+            const args = fullText.split(" ");
+            
             let featureKey = "";
             let action = "";
 
             if (command === "set") {
-                const args = q ? q.toLowerCase().split(" ") : [];
-                featureKey = args[0];
-                action = args[1];
+                // Agar command .set hai, toh pehla argument feature hoga aur doosra on/off
+                featureKey = (args[1] || "").toLowerCase();
+                action = (args[2] || "").toLowerCase();
             } else {
-                featureKey = command;
-                action = q ? q.toLowerCase().trim() : "";
+                // Agar direct command hai (jaise .autoreact on)
+                featureKey = command.toLowerCase();
+                action = (args[1] || args[0] || "").toLowerCase();
             }
 
             if (!featureKey || (action !== "on" && action !== "off")) {
-                return reply(`❌ Ghalat tareeqa! Sahi format use karein:\n\n• .set antilink on/off\n• .set antistatus on/off\n• .set mentionstatus on/off\n• .set antidel on/off\n• .set antiedit on/off\n• .set autoreact on/off\n• .set welcome on/off\n• .set statusseen on/off\n• .set statuslike on/off`);
+                return reply(`❌ Ghalat tareeqa! Sahi format use karein:\n\n• .set autoreact on/off\n• .autoreact on/off\n• .set antilink on/off`);
             }
 
             let configKey = "";
@@ -76,7 +81,6 @@ module.exports = {
                     return reply(`❌ Invalid feature name! Sahi command likhein.`);
             }
 
-            // User config update service ko safe tarike se require karna taaki path ka error na aaye
             const { updateUserConfig } = require('../userConfigService') || require('./userConfigService') || {};
             
             if (typeof updateUserConfig === 'function') {
@@ -85,7 +89,7 @@ module.exports = {
                 await react("✅");
                 return reply(`✅ Success! *${featureName}* ko successfully *${action.toUpperCase()}* kar diya gaya hai.`);
             } else {
-                return reply(`❌ Error: Update service not found in this directory.`);
+                return reply(`❌ Error: Update service not found.`);
             }
 
         } catch (error) {
